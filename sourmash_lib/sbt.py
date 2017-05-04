@@ -70,6 +70,15 @@ def GraphFactory(ksize, starting_size, n_tables):
     return create_nodegraph
 
 
+def QFFactory(ksize, starting_size):
+    "Build new nodegraphs (Bloom filters) of a specific (fixed) size."
+
+    def create_nodegraph():
+        return khmer.QFCounttable(ksize, starting_size)
+
+    return create_nodegraph
+
+
 class SBT(object):
 
     def __init__(self, factory, d=2):
@@ -165,7 +174,7 @@ class SBT(object):
         return NodePos(cd, self.nodes[cd])
 
     def save(self, tag):
-        version = 2
+        version = 4
         basetag = os.path.basename(tag)
         dirprefix = os.path.dirname(tag)
         dirname = os.path.join(dirprefix, '.sbt.' + basetag)
@@ -210,6 +219,7 @@ class SBT(object):
         loaders = {
             1: cls._load_v1,
             2: cls._load_v2,
+            4: cls._load_v4,
         }
 
         # @CTB hack: check to make sure khmer Nodegraph supports the
@@ -277,6 +287,37 @@ class SBT(object):
         sample_bf = os.path.join(dirname, nodes[0]['filename'])
         k, size, ntables = khmer.extract_nodegraph_info(sample_bf)[:3]
         factory = GraphFactory(k, size, ntables)
+
+        for k, node in nodes.items():
+            if node is None:
+                continue
+
+            if 'internal' in node['filename']:
+                node['factory'] = factory
+                sbt_node = Node.load(node, dirname)
+            else:
+                sbt_node = leaf_loader(node, dirname)
+
+            sbt_nodes[k] = sbt_node
+
+        tree = cls(factory, d=info['d'])
+        tree.nodes = sbt_nodes
+
+        return tree
+
+    @classmethod
+    def _load_v4(cls, info, leaf_loader, dirname):
+        nodes = {int(k): v for (k, v) in info['nodes'].items()}
+
+        if nodes[0] is None:
+            raise ValueError("Empty tree!")
+
+        sbt_nodes = defaultdict(lambda: None)
+
+        # TODO: we can't read this info from QFCounttable yet...
+        # but shouldn't matter much (we don't use k,
+        # and it can grow.
+        factory = QFFactory(31, 8)
 
         for k, node in nodes.items():
             if node is None:
@@ -397,7 +438,8 @@ class Node(object):
             if self._filename is None:
                 self._data = self._factory()
             else:
-                self._data = khmer.load_nodegraph(self._filename)
+                self._data = khmer.QFCounttable(31, 8)
+                self._data.load(self._filename)
         return self._data
 
     @data.setter
@@ -433,7 +475,8 @@ class Leaf(object):
     def data(self):
         if self._data is None:
             # TODO: what if self._filename is None?
-            self._data = khmer.load_nodegraph(self._filename)
+            self._data = khmer.QFCounttable(31, 8)
+            self._data.load(self._filename)
         return self._data
 
     @data.setter

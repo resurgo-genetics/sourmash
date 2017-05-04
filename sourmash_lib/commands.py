@@ -510,7 +510,7 @@ def sbt_combine(args):
 
 
 def sbt_index(args):
-    from sourmash_lib.sbt import SBT, GraphFactory
+    from sourmash_lib.sbt import SBT, QFFactory
     from sourmash_lib.sbtmh import search_minhashes, SigLeaf
 
     parser = argparse.ArgumentParser()
@@ -526,7 +526,7 @@ def sbt_index(args):
     args = parser.parse_args(args)
     moltype = sourmash_args.calculate_moltype(args)
 
-    factory = GraphFactory(1, args.bf_size, 4)
+    factory = QFFactory(31, 4096)
     tree = SBT(factory)
 
     if args.traverse_directory:

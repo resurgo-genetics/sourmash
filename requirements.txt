@@ -5,5 +5,4 @@ numpy
 matplotlib
 scipy
 Cython
-https://github.com/dib-lab/khmer/archive/master.zip
-
+https://github.com/dib-lab/khmer/archive/try/cqf_storage_saveload.zip
