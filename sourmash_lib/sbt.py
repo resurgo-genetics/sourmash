@@ -316,8 +316,8 @@ class SBT(object):
 
         # TODO: we can't read this info from QFCounttable yet...
         # but shouldn't matter much (we don't use k,
-        # and it can grow.
-        factory = QFFactory(31, 8)
+        # and it can grow).
+        factory = QFFactory(31, 2**26)
 
         for k, node in nodes.items():
             if node is None:
@@ -438,7 +438,7 @@ class Node(object):
             if self._filename is None:
                 self._data = self._factory()
             else:
-                self._data = khmer.QFCounttable(31, 8)
+                self._data = khmer.QFCounttable(31, 1)
                 self._data.load(self._filename)
         return self._data
 
@@ -475,7 +475,7 @@ class Leaf(object):
     def data(self):
         if self._data is None:
             # TODO: what if self._filename is None?
-            self._data = khmer.QFCounttable(31, 8)
+            self._data = khmer.QFCounttable(31, 1)
             self._data.load(self._filename)
         return self._data
 

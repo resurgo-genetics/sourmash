@@ -526,7 +526,7 @@ def sbt_index(args):
     args = parser.parse_args(args)
     moltype = sourmash_args.calculate_moltype(args)
 
-    factory = QFFactory(31, 4096)
+    factory = QFFactory(31, 2**26)
     tree = SBT(factory)
 
     if args.traverse_directory:
