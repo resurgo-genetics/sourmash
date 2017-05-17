@@ -52,7 +52,8 @@ SETUP_METADATA = \
     "author": "C. Titus Brown",
     "author_email": "titus@idyll.org",
     "license": "BSD 3-clause",
-    "packages": ["sourmash_lib"],
+    "packages": ["sourmash_lib", "sourmash_lib.tests"],
+    "package_dir": {'sourmash_lib.tests': 'tests'},
     "entry_points": {'console_scripts': [
         'sourmash = sourmash_lib.__main__:main'
         ]
