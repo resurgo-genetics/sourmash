@@ -11,6 +11,12 @@ from .commands import (categorize, compare, compute, convert, dump, import_csv,
                        sbt_gather, sbt_index, sbt_combine, sbt_search, search,
                        plot, watch)
 
+try:
+    from sourmash_utils.__main__ import main as utils_main
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+
 
 def main():
     commands = {'search': search, 'compute': compute,
@@ -20,6 +26,9 @@ def main():
                 'categorize': categorize, 'sbt_gather': sbt_gather,
                 'watch': watch, 'convert': convert,
                 'sbt_combine': sbt_combine}
+    if UTILS_AVAILABLE:
+        commands['utils'] = utils_main
+
     parser = argparse.ArgumentParser(
         description='work with RNAseq signatures',
         usage='''sourmash <command> [<args>]
@@ -56,4 +65,4 @@ sourmash compute -h
     cmd = commands.get(args.command)
     notify('# running sourmash subcommand: %s' % args.command,
            file=sys.stderr)
-    cmd(sys.argv[2:])
+    return cmd(sys.argv[2:])

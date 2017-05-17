@@ -41,13 +41,13 @@ def scriptpath(scriptname='sourmash'):
             return path
 
 
-def _runscript(scriptname):
+def _runscript(scriptname, distribution='sourmash'):
     """Find & run a script with exec (i.e. not via os.system or subprocess)."""
     namespace = {"__name__": "__main__"}
     namespace['sys'] = globals()['sys']
 
     try:
-        pkg_resources.get_distribution("sourmash").run_script(
+        pkg_resources.get_distribution(distribution).run_script(
             scriptname, namespace)
         return 0
     except pkg_resources.ResolutionError:
@@ -67,7 +67,7 @@ def _runscript(scriptname):
 
 
 def runscript(scriptname, args, in_directory=None,
-              fail_ok=False):
+              fail_ok=False, distribution='sourmash'):
     """Run a Python script using exec().
 
     Run the given Python script, with the given args, in the given directory,
@@ -100,7 +100,7 @@ def runscript(scriptname, args, in_directory=None,
             print('running:', scriptname, 'in:', in_directory, file=oldout)
             print('arguments', sysargs, file=oldout)
 
-            status = _runscript(scriptname)
+            status = _runscript(scriptname, distribution=distribution)
         except SystemExit as err:
             status = err.code
         except:  # pylint: disable=bare-except
@@ -112,6 +112,9 @@ def runscript(scriptname, args, in_directory=None,
         sys.stdout, sys.stderr = oldout, olderr
 
         os.chdir(cwd)
+
+    if status is None:
+        status = 0
 
     if status != 0 and not fail_ok:
         print(out)
