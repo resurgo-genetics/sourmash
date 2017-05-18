@@ -10,7 +10,7 @@ import screed
 import sourmash_lib
 from . import signature as sig
 from . import sourmash_args
-from .logging import notify, error
+from .logging import notify, error, results
 
 DEFAULT_K = 31
 DEFAULT_N = 500
@@ -75,14 +75,13 @@ def search(args):
         distances.sort(reverse=True, key=lambda x: x[0])
         n_matches = len(distances)
         if n_matches <= args.num_results:
-            notify('{} matches:'.format(n_matches))
+            results('{} matches:'.format(n_matches))
         else:
-            notify('{} matches; showing first {}:',
+            results('{} matches; showing first {}:',
                    len(distances), args.num_results)
         for distance, match, filename in distances[:args.num_results]:
 
-            print('\t', match.name(), '\t', "%.3f" % distance,
-                  '\t', filename)
+            results("\t{}\t{:.3f}\t{}", match.name(), distance, filename)
 
         if args.save_matches:
             outname = args.save_matches.name
@@ -90,7 +89,7 @@ def search(args):
             sig.save_signatures([ m for (d, m, f) in distances ],
                                 args.save_matches)
     else:
-        notify('** no matches in {} signatures', len(against))
+        results('** no matches in {} signatures', len(against))
 
 
 def compute(args):
@@ -257,7 +256,7 @@ def compute(args):
                     siglist += build_siglist(args.email, Elist, filename,
                                              name=record.name)
 
-                notify('calculated {} signatures for {} sequences in {}'.\
+                results('calculated {} signatures for {} sequences in {}'.\
                           format(len(siglist), n + 1, filename))
             else:
                 # make minhashes for the whole file
@@ -283,7 +282,7 @@ def compute(args):
                 else:
                     siglist = sigs
 
-                notify('calculated {} signatures for {} sequences in {}'.\
+                results('calculated {} signatures for {} sequences in {}'.\
                           format(len(siglist), n + 1, filename))
 
             if not args.output:
@@ -307,7 +306,7 @@ def compute(args):
 
         siglist = build_siglist(args.email, Elist, filename,
                                 name=args.merge)
-        notify('calculated {} signatures for {} sequences taken from {}'.\
+        results('calculated {} signatures for {} sequences taken from {}'.\
                format(len(siglist), n + 1, " ".join(args.filenames)))
         # at end, save!
         save_siglist(siglist, args.output)
@@ -334,7 +333,7 @@ def compare(args):
         loaded = sig.load_signatures(filename, select_ksize=args.ksize)
         loaded = list(loaded)
         if not loaded:
-            notify('warning: no signatures loaded at given ksize from {}',
+            notify('WARNING: no signatures loaded at given ksize from {}',
                    filename)
         siglist.extend(loaded)
 
@@ -637,13 +636,13 @@ def sbt_search(args):
     results.sort(key=lambda x: -x[0])   # reverse sort on similarity
 
     if args.best_only:
-        notify("(truncated search because of --best-only; only trust top result")
+        results("(truncated search because of --best-only; only trust top result")
 
-    notify("similarity   match")
-    notify("----------   -----")
+    results("similarity   match")
+    results("----------   -----")
     for (similarity, query) in results:
         pct = '{:.1f}%'.format(similarity*100)
-        notify('{:>6}       {}', pct, query.name())
+        results('{:>6}       {}', pct, query.name())
 
     if args.save_matches:
         outname = args.save_matches.name
@@ -710,12 +709,12 @@ def categorize(args):
         if results:
             results.sort(key=lambda x: -x[0])   # reverse sort on similarity
             best_hit_sim, best_hit_query = results[0]
-            notify('for {}, found: {:.2f} {}', query.name(),
+            results('for {}, found: {:.2f} {}', query.name(),
                                                best_hit_sim,
                                                best_hit_query.name())
             best_hit_query_name = best_hit_query.name()
         else:
-            notify('for {}, no match found', query.name())
+            results('for {}, no match found', query.name())
 
         if args.csv:
             w = csv.writer(args.csv)
@@ -864,17 +863,17 @@ def sbt_gather(args):
         f_query = len(intersect_mins) / float(query_n_mins)
 
         if not len(found):                # first result? print header.
-            notify("")
-            notify("overlap     p_query p_match ")
-            notify("---------   ------- --------")
+            results("")
+            results("overlap     p_query p_match ")
+            results("---------   ------- --------")
 
         # print interim result & save in a list for later use
         pct_query = '{:.1f}%'.format(f_orig_query*100)
         pct_genome = '{:.1f}%'.format(f_genome*100)
 
-        notify('{:9}   {:>6}  {:>6}      {}',
-               format_bp(intersect_bp), pct_query, pct_genome,
-               best_leaf.name()[:40])
+        results('{:9}   {:>6}  {:>6}      {}',
+                format_bp(intersect_bp), pct_query, pct_genome,
+                best_leaf.name()[:40])
         found.append((intersect_bp, f_orig_query, best_leaf, f_genome))
 
         # construct a new query, minus the previous one.
@@ -885,8 +884,8 @@ def sbt_gather(args):
     notify('\nfound {} matches total;', len(found))
 
     sum_found /= len(orig_query.minhash.get_hashes())
-    notify('the recovered matches hit {:.1f}% of the query', sum_found * 100)
-    notify('')
+    results('the recovered matches hit {:.1f}% of the query', sum_found * 100)
+    results('')
 
     if not found:
         sys.exit(0)
