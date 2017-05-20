@@ -56,12 +56,16 @@ Use '-h' to get subcommand-specific help, e.g.
 sourmash compute -h
 .
 ''')
-    parser.add_argument('command')
-    args = parser.parse_args(sys.argv[1:2])
-    if args.command not in commands:
-        error('Unrecognized command')
-        parser.print_help()
-        sys.exit(1)
+    subparsers = parser.add_subparsers()
 
-    cmd = commands.get(args.command)
-    return cmd(sys.argv[2:])
+    for cmd in commands:
+        subp = subparsers.add_parser(cmd)
+        if cmd == 'compute':
+            commands[cmd].add_args(subp)
+            subp.set_defaults(cmd=commands[cmd])
+
+    args = parser.parse_args()
+    cmd = args.cmd
+    args_dict = vars(args)
+    args_dict.pop('cmd')
+    return cmd(**args_dict)

@@ -20,32 +20,20 @@ DEFAULT_N = 500
 WATERMARK_SIZE = 10000
 
 
-def compute(args):
-    """Compute the signature for one or more files.
-
-    Use cases:
-        sourmash compute multiseq.fa              => multiseq.fa.sig, etc.
-        sourmash compute genome.fa --singleton    => genome.fa.sig
-        sourmash compute file1.fa file2.fa -o file.sig
-            => creates one output file file.sig, with one signature for each
-               input file.
-        sourmash compute file1.fa file2.fa --merge merged -o file.sig
-            => creates one output file file.sig, with all sequences from
-               file1.fa and file2.fa combined into one signature.
-    """
-    parser = argparse.ArgumentParser()
+def compute_add_args(parser):
     parser.add_argument('filenames', nargs='+',
                         help='file(s) of sequences')
 
     sourmash_args.add_construct_moltype_args(parser)
-
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='suppress non-error output')
     parser.add_argument('--input-is-protein', action='store_true',
                         help='Consume protein sequences - no translation needed.')
     parser.add_argument('-k', '--ksizes',
-                        default=DEFAULT_COMPUTE_K,
-                        help='comma-separated list of k-mer sizes (default: %(default)s)')
+                        default=(21, 31, 51),
+                        help='comma-separated list of k-mer sizes '
+                             '(default: %(default)s)',
+                        type=lambda s: [int(item) for item in s.split(',')])
     parser.add_argument('-n', '--num-hashes', type=int,
                         default=DEFAULT_N,
                         help='number of hashes to use in each sketch (default: %(default)i)')
@@ -71,23 +59,40 @@ def compute(args):
                         help='seed used by MurmurHash (default: 42)',
                         default=sourmash_lib.DEFAULT_SEED)
 
-    args = parser.parse_args(args)
-    set_quiet(args.quiet)
 
-    if args.input_is_protein and args.dna:
+#TODO: output, merge,
+def compute(filenames=None, check_sequence=False, ksizes=(21,), dna=True, singleton=False,
+            email='', scaled=10000, force=False, output=None, num_hashes=500, protein=False,
+            name_from_first=False, seed=42, input_is_protein=False, merge=None, quiet=False,
+            track_abundance=False):
+    """Compute the signature for one or more files.
+
+    Use cases:
+        sourmash compute multiseq.fa              => multiseq.fa.sig, etc.
+        sourmash compute genome.fa --singleton    => genome.fa.sig
+        sourmash compute file1.fa file2.fa -o file.sig
+            => creates one output file file.sig, with one signature for each
+               input file.
+        sourmash compute file1.fa file2.fa --merge merged -o file.sig
+            => creates one output file file.sig, with all sequences from
+               file1.fa and file2.fa combined into one signature.
+    """
+    set_quiet(quiet)
+
+    if input_is_protein and dna:
         notify('WARNING: input is protein, turning off DNA hashing')
-        args.dna = False
-        args.protein = True
+        dna = False
+        protein = True
 
-    if args.scaled:
-        if args.num_hashes != 0:
+    if scaled:
+        if num_hashes != 0:
             notify('setting num_hashes to 0 because --scaled is set')
-            args.num_hashes = 0
+            num_hashes = 0
 
-    notify('computing signatures for files: {}', ", ".join(args.filenames))
+    notify('computing signatures for files: {}', ", ".join(filenames))
 
     # get list of k-mer sizes for which to compute sketches
-    ksizes = args.ksizes
+    ksizes = ksizes
     if ',' in ksizes:
         ksizes = ksizes.split(',')
         ksizes = list(map(int, ksizes))
@@ -97,17 +102,17 @@ def compute(args):
     notify('Computing signature for ksizes: {}', str(ksizes))
 
     num_sigs = 0
-    if args.dna and args.protein:
+    if dna and protein:
         notify('Computing both DNA and protein signatures.')
         num_sigs = 2*len(ksizes)
-    elif args.dna:
+    elif dna:
         notify('Computing only DNA (and not protein) signatures.')
         num_sigs = len(ksizes)
-    elif args.protein:
+    elif protein:
         notify('Computing only protein (and not DNA) signatures.')
         num_sigs = len(ksizes)
 
-    if args.protein:
+    if protein:
         bad_ksizes = [ str(k) for k in ksizes if k % 3 != 0 ]
         if bad_ksizes:
             error('protein ksizes must be divisible by 3, sorry!')
@@ -120,31 +125,30 @@ def compute(args):
         error('...nothing to calculate!? Exiting!')
         sys.exit(-1)
 
-    if args.merge and not args.output:
+    if merge and not output:
         error("must specify -o with --merge")
         sys.exit(-1)
 
     def make_minhashes():
-        seed = args.seed
         max_hash = 0
-        if args.scaled and args.scaled > 1:
-            max_hash = sourmash_lib.MAX_HASH / float(args.scaled)
+        if scaled and scaled > 1:
+            max_hash = sourmash_lib.MAX_HASH / float(scaled)
             max_hash = int(round(max_hash, 0))
 
         # one minhash for each ksize
         Elist = []
         for k in ksizes:
-            if args.protein:
-                E = sourmash_lib.MinHash(ksize=k, n=args.num_hashes,
+            if protein:
+                E = sourmash_lib.MinHash(ksize=k, n=num_hashes,
                                             is_protein=True,
-                                    track_abundance=args.track_abundance,
+                                            track_abundance=track_abundance,
                                             max_hash=max_hash,
                                             seed=seed)
                 Elist.append(E)
-            if args.dna:
-                E = sourmash_lib.MinHash(ksize=k, n=args.num_hashes,
+            if dna:
+                E = sourmash_lib.MinHash(ksize=k, n=num_hashes,
                                             is_protein=False,
-                                    track_abundance=args.track_abundance,
+                                            track_abundance=track_abundance,
                                             max_hash=max_hash,
                                             seed=seed)
                 Elist.append(E)
@@ -164,36 +168,35 @@ def compute(args):
     def save_siglist(siglist, output_fp, filename=None):
         # save!
         if output_fp:
-            sig.save_signatures(siglist, args.output)
+            sig.save_signatures(siglist, output)
         else:
             if filename is None:
                 raise Exception("internal error, filename is None")
             with open(filename, 'w') as fp:
                 sig.save_signatures(siglist, fp)
 
-    if args.track_abundance:
+    if track_abundance:
         notify('Tracking abundance of input k-mers.')
 
-    if not args.merge:
-        if args.output:
+    if not merge:
+        if output:
             siglist = []
 
-        for filename in args.filenames:
+        for filename in filenames:
             sigfile = os.path.basename(filename) + '.sig'
-            if not args.output and os.path.exists(sigfile) and not \
-                args.force:
+            if not output and os.path.exists(sigfile) and not force:
                 notify('skipping {} - already done', filename)
                 continue
 
-            if args.singleton:
+            if singleton:
                 siglist = []
                 for n, record in enumerate(screed.open(filename)):
                     # make minhashes for each sequence
                     Elist = make_minhashes()
                     add_seq(Elist, record.sequence,
-                            args.input_is_protein, args.check_sequence)
+                            input_is_protein, check_sequence)
 
-                    siglist += build_siglist(args.email, Elist, filename,
+                    siglist += build_siglist(email, Elist, filename,
                                              name=record.name)
 
                 notify('calculated {} signatures for {} sequences in {}'.\
@@ -209,15 +212,14 @@ def compute(args):
                     if n % 10000 == 0:
                         if n:
                             notify('...{} {}', filename, n)
-                        elif args.name_from_first:
+                        elif name_from_first:
                             name = record.name
 
                     s = record.sequence
-                    add_seq(Elist, record.sequence,
-                            args.input_is_protein, args.check_sequence)
+                    add_seq(Elist, s, input_is_protein, check_sequence)
 
-                sigs = build_siglist(args.email, Elist, filename, name)
-                if args.output:
+                sigs = build_siglist(email, Elist, filename, name)
+                if output:
                     siglist += sigs
                 else:
                     siglist = sigs
@@ -225,16 +227,16 @@ def compute(args):
                 notify('calculated {} signatures for {} sequences in {}'.\
                           format(len(siglist), n + 1, filename))
 
-            if not args.output:
-                save_siglist(siglist, args.output, sigfile)
+            if not output:
+                save_siglist(siglist, output, sigfile)
 
-        if args.output:
-            save_siglist(siglist, args.output, sigfile)
+        if output:
+            save_siglist(siglist, output, sigfile)
     else:                             # single name specified - combine all
         # make minhashes for the whole file
         Elist = make_minhashes()
 
-        for filename in args.filenames:
+        for filename in filenames:
             # consume & calculate signatures
             notify('... reading sequences from', filename)
             for n, record in enumerate(screed.open(filename)):
@@ -242,14 +244,14 @@ def compute(args):
                     notify('...', filename, n)
 
                 add_seq(Elist, record.sequence,
-                        args.input_is_protein, args.check_sequence)
+                        input_is_protein, check_sequence)
 
-        siglist = build_siglist(args.email, Elist, filename,
-                                name=args.merge)
+        siglist = build_siglist(email, Elist, filename, name=merge)
         notify('calculated {} signatures for {} sequences taken from {}'.\
-               format(len(siglist), n + 1, " ".join(args.filenames)))
+               format(len(siglist), n + 1, " ".join(filenames)))
         # at end, save!
-        save_siglist(siglist, args.output)
+        save_siglist(siglist, output)
+compute.add_args = compute_add_args
 
 
 def compare(args):
