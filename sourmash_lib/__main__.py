@@ -65,7 +65,4 @@ sourmash compute -h
             subp.set_defaults(cmd=commands[cmd])
 
     args = parser.parse_args()
-    cmd = args.cmd
-    args_dict = vars(args)
-    args_dict.pop('cmd')
-    return cmd(**args_dict)
+    return args.cmd(**vars(args))

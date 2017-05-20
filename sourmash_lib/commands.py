@@ -64,7 +64,7 @@ def compute_add_args(parser):
 def compute(filenames=None, check_sequence=False, ksizes=(21,), dna=True, singleton=False,
             email='', scaled=10000, force=False, output=None, num_hashes=500, protein=False,
             name_from_first=False, seed=42, input_is_protein=False, merge=None, quiet=False,
-            track_abundance=False):
+            track_abundance=False, **kwargs):
     """Compute the signature for one or more files.
 
     Use cases:
