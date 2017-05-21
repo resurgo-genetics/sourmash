@@ -5,3 +5,6 @@ recursive-include third-party *.cc *.h
 global-exclude *.orig
 global-exclude *.pyc
 global-exclude *.so
+graft tests
+global-exclude *.orig
+global-exclude *.pyc
